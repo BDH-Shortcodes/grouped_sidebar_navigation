@@ -1,20 +1,10 @@
-// SHORTCODE: [bdh_global_breadcrumbs] - DYNAMIC MAIN VS SUB-CATEGORY TRAIL ENGINE (UPDATED FOR CUSTOM SUBCAT GRID)
+// SHORTCODE: [bdh_global_breadcrumbs] - DYNAMIC MAIN VS SUB-CATEGORY TRAIL ENGINE
 add_shortcode('bdh_global_breadcrumbs', function() {
     $taxonomy = 'product-category';
     
     // Base container with clean font settings and spacing
     $html = '<div class="bdh-global-breadcrumbs" style="font-family:sans-serif; font-size:0.95rem; color:#334155; margin-bottom:20px; display:flex; align-items:center; justify-content:flex-start; text-align:left; flex-wrap:wrap; gap:6px; width:100%;">';
     $html .= '  <a href="/" style="color:#334155; text-decoration:none; font-weight:500;">Home</a>';
-
-    // Helper function to build correct link based on parent vs child status
-    $get_smart_term_url = function($term, $tax_slug) {
-        if ($term->parent != 0) {
-            // It is a Child Subcategory! Route to your new layout grid page
-            return home_url('/subcategory-view/?sub_cat=' . $term->slug);
-        }
-        // It is a Top-Level Parent! Use the native clean permalink structure
-        return get_term_link($term, $tax_slug);
-    };
 
     // SCENARIO 1: Single Product Detail Page
     if ( is_singular('product') ) {
@@ -42,12 +32,12 @@ add_shortcode('bdh_global_breadcrumbs', function() {
                     $parent_term = get_term($deepest_term->parent, $taxonomy);
                     if ( $parent_term && ! is_wp_error($parent_term) ) {
                         $html .= '  <span style="color:#94a3b8;">/</span>';
-                        $html .= '  <a href="' . esc_url($get_smart_term_url($parent_term, $taxonomy)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html($parent_term->name) . '</a>';
+                        $html .= '  <a href="' . esc_url(get_term_link($parent_term)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html($parent_term->name) . '</a>';
                     }
                 }
                 
                 $html .= '  <span style="color:#94a3b8;">/</span>';
-                $html .= '  <a href="' . esc_url($get_smart_term_url($deepest_term, $taxonomy)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html($deepest_term->name) . '</a>';
+                $html .= '  <a href="' . esc_url(get_term_link($deepest_term)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html($deepest_term->name) . '</a>';
             }
         }
         
@@ -66,7 +56,7 @@ add_shortcode('bdh_global_breadcrumbs', function() {
                 $parent_term = get_term($current_term->parent, $taxonomy);
                 if ( $parent_term && ! is_wp_error($parent_term) ) {
                     $html .= '  <span style="color:#94a3b8;">/</span>';
-                    $html .= '  <a href="' . esc_url($get_smart_term_url($parent_term, $taxonomy)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html($parent_term->name) . '</a>';
+                    $html .= '  <a href="' . esc_url(get_term_link($parent_term)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html($parent_term->name) . '</a>';
                 }
             }
             
@@ -75,38 +65,15 @@ add_shortcode('bdh_global_breadcrumbs', function() {
             $html .= '  <span style="color:#006747; font-weight:600;">' . esc_html($current_term->name) . '</span>';
         }
 
-    // SCENARIO 3: Regular Static Pages (Including our custom Subcategory grid wrapper page)
+    // SCENARIO 3: Regular Static Pages
     } elseif ( is_page() ) {
-        // If we are on the custom Subcategory Grid View page, look up the term via URL parameter for a true structural trail
-        if ( is_page('subcategory-view') && !empty($_GET['sub_cat']) ) {
-            $term_lookup = get_term_by('slug', sanitize_text_field($_GET['sub_cat']), $taxonomy);
-            if ( $term_lookup && ! is_wp_error($term_lookup) ) {
-                $html .= '  <span style="color:#94a3b8;">/</span>';
-                $html .= '  <a href="/products/" style="color:#334155; text-decoration:none; font-weight:500;">Products</a>';
-                
-                if ( $term_lookup->parent != 0 ) {
-                    $parent_term = get_term($term_lookup->parent, $taxonomy);
-                    if ( $parent_term && ! is_wp_error($parent_term) ) {
-                        $html .= '  <span style="color:#94a3b8;">/</span>';
-                        $html .= '  <a href="' . esc_url($get_smart_term_url($parent_term, $taxonomy)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html($parent_term->name) . '</a>';
-                    }
-                }
-                $html .= '  <span style="color:#94a3b8;">/</span>';
-                $html .= '  <span style="color:#006747; font-weight:600;">' . esc_html($term_lookup->name) . '</span>';
-            } else {
-                $html .= '  <span style="color:#94a3b8;">/</span>';
-                $html .= '  <span style="color:#006747; font-weight:600;">' . esc_html(get_the_title()) . '</span>';
-            }
-        } else {
-            // Standard Page Handling
-            global $post;
-            if ( $post && $post->post_parent ) {
-                $html .= '  <span style="color:#94a3b8;">/</span>';
-                $html .= '  <a href="' . esc_url(get_permalink($post->post_parent)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html(get_the_title($post->post_parent)) . '</a>';
-            }
+        global $post;
+        if ( $post && $post->post_parent ) {
             $html .= '  <span style="color:#94a3b8;">/</span>';
-            $html .= '  <span style="color:#006747; font-weight:600;">' . esc_html(get_the_title()) . '</span>';
+            $html .= '  <a href="' . esc_url(get_permalink($post->post_parent)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html(get_the_title($post->post_parent)) . '</a>';
         }
+        $html .= '  <span style="color:#94a3b8;">/</span>';
+        $html .= '  <span style="color:#006747; font-weight:600;">' . esc_html(get_the_title()) . '</span>';
         
     // SCENARIO 4: Fallback Slug Segment Parsing
     } else {
@@ -121,7 +88,7 @@ add_shortcode('bdh_global_breadcrumbs', function() {
                 $parent_term = get_term($term_lookup->parent, $taxonomy);
                 if ( $parent_term && ! is_wp_error($parent_term) ) {
                     $html .= '  <span style="color:#94a3b8;">/</span>';
-                    $html .= '  <a href="' . esc_url($get_smart_term_url($parent_term, $taxonomy)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html($parent_term->name) . '</a>';
+                    $html .= '  <a href="' . esc_url(get_term_link($parent_term)) . '" style="color:#334155; text-decoration:none; font-weight:500;">' . esc_html($parent_term->name) . '</a>';
                 }
             }
             $html .= '  <span style="color:#94a3b8;">/</span>';
