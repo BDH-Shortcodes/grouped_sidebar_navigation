@@ -1,0 +1,29 @@
+/**
+ * Advanced URI Router: Intercepts native deep sub-category requests 
+ * and maps them straight to the query grid before a 404 error triggers.
+ */
+add_action('parse_request', function($wp) {
+    // Check if we are currently requesting our custom product category taxonomy path
+    if (isset($wp->query_vars['product-category']) || strpos($_SERVER['REQUEST_URI'], '/products/') !== false) {
+        
+        $current_url_path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+        $segments = explode('/', $current_url_path);
+
+        // Check if this is a deep sub-category link (at least 3 steps deep: e.g., products -> parent -> sub)
+        if (count($segments) >= 3) {
+            // Grab the very last segment, which is always your target sub-category slug
+            $sub_cat_slug = end($segments);
+            
+            // Check if the term exists to avoid looping real pages
+            $term = get_term_by('slug', $sub_cat_slug, 'product-category');
+            
+            if ($term && $term->parent != 0) {
+                // Point it cleanly to your master query grid page
+                $destination_url = add_query_arg('sub_cat', $sub_cat_slug, home_url('/products/'));
+                
+                wp_redirect($destination_url, 301);
+                exit;
+            }
+        }
+    }
+});
