@@ -1,0 +1,370 @@
+/**
+ * COMPONENT 2: [acf_master_products_catalog]
+ * Master Product Catalog AJAX Grid Engine - Universal Tab & Live Search Matrix Fix
+ * Feature Upgrades: Fully Clickable Cards & Main Category Redirection Support
+ */
+add_shortcode('acf_master_products_catalog', function() {
+    $output = '<div class="acf-catalog-grid-wrapper">';
+
+    // 🎛️ META HEADER BAR (Item Counter & Grid/List Toggles)
+    $output .= '  <div class="catalog-grid-meta-row">';
+    $output .= '    <span id="ajax-product-counter" class="count-digits">Loading items...</span>';
+    $output .= '    <div class="layout-toggle-controls">';
+    $output .= '      <button type="button" id="toggle-grid-btn" class="layout-btn active" title="Grid View">';
+    $output .= '        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>';
+    $output .= '      </button>';
+    $output .= '      <button type="button" id="toggle-list-btn" class="layout-btn" title="List View">';
+    $output .= '        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>';
+    $output .= '      </button>';
+    $output .= '    </div>';
+    $output .= '  </div>';
+
+    // 🧱 DISPLAY CONTENT TARGET CONTAINERS
+    $output .= '  <div id="catalog-products-display" class="products-layout-grid smooth-fade"></div>';
+    $output .= '  <div id="catalog-pagination-container"></div>';
+    $output .= '</div>';
+
+    // ⚡ UNIVERSAL AJAX INTERACTION & SYNC SCRIPT ENGINE
+    $output .= '
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let currentCat = "";
+        let currentSearch = "";
+        let currentPage = 1;
+        let viewMode = "products-layout-grid";
+        let searchTimeout = null;
+
+        const displayBox = document.getElementById("catalog-products-display");
+        const countBox = document.getElementById("ajax-product-counter");
+        const pagerBox = document.getElementById("catalog-pagination-container");
+
+        // 🎯 DYNAMIC PARAMETER SYNC FROM URL ROUTING 
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Extract category if it is in a pretty URL format instead of a query parameter
+        const pathSegments = window.location.pathname.replace(/\/$/, "").split("/");
+        let prettyCategorySlug = "";
+        if (pathSegments.length >= 3 && pathSegments[0] === "" && pathSegments[1] === "products") {
+            prettyCategorySlug = pathSegments[pathSegments.length - 1];
+        }
+
+        if (prettyCategorySlug !== "") {
+            currentCat = prettyCategorySlug;
+            setTimeout(() => {
+                if (typeof syncSidebarSelectionState === "function") {
+                    syncSidebarSelectionState(currentCat);
+                }
+            }, 250);
+        } else if (urlParams.has("sub_cat")) {
+            currentCat = urlParams.get("sub_cat");
+            setTimeout(() => {
+                if (typeof syncSidebarSelectionState === "function") {
+                    syncSidebarSelectionState(currentCat);
+                }
+            }, 250);
+        } else if (urlParams.has("p_cat")) {
+            currentCat = urlParams.get("p_cat");
+            setTimeout(() => {
+                if (typeof syncSidebarSelectionState === "function") {
+                    syncSidebarSelectionState(currentCat);
+                }
+            }, 250);
+        }
+
+        function fetchProducts() {
+            if (!displayBox) return;
+            displayBox.style.opacity = "0.35";
+            
+            const formData = new FormData();
+            formData.append("action", "filter_catalog_products");
+            formData.append("p_cat", currentCat);
+            formData.append("p_search", currentSearch);
+            formData.append("paged", currentPage);
+
+            fetch("' . admin_url('admin-ajax.php') . '", {
+                method: "POST",
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                displayBox.className = viewMode + " smooth-fade";
+                displayBox.innerHTML = data.html || "";
+                if (countBox) countBox.innerHTML = data.count_text || "";
+                if (pagerBox) pagerBox.innerHTML = data.pagination || "";
+                displayBox.style.opacity = "1";
+            })
+            .catch(err => {
+                console.error("Catalog Engine Fetch Error: ", err);
+                if (displayBox) displayBox.style.opacity = "1";
+            });
+        }
+
+        // 🔍 MULTI-INPUT SEARCH DETECTOR
+        function initSearchListeners() {
+            const searchInput = document.getElementById("ajax-live-search-input") || 
+                                document.querySelector("input[type=\'search\']") || 
+                                document.querySelector(".elementor-search-form__input");
+
+            if (searchInput) {
+                searchInput.addEventListener("input", function() {
+                    clearTimeout(searchTimeout);
+                    currentSearch = this.value;
+                    currentPage = 1;
+                    
+                    searchTimeout = setTimeout(() => {
+                        fetchProducts();
+                    }, 300);
+                });
+
+                const trackingForm = searchInput.closest("form");
+                if (trackingForm) {
+                    trackingForm.addEventListener("submit", function(e) {
+                        e.preventDefault();
+                        currentSearch = searchInput.value;
+                        currentPage = 1;
+                        fetchProducts();
+                    });
+                }
+            }
+        }
+
+        // Global Interface Bridge Definition - Connected directly to Sidebar Engine clicks
+        window.triggerCatalogAjaxFilter = function(slug, searchKeyword) {
+            currentCat = slug !== undefined ? slug : currentCat;
+            if (searchKeyword !== undefined) currentSearch = searchKeyword;
+            currentPage = 1;
+            fetchProducts();
+        };
+
+        // Function to handle active highlights & accordion drawers on the Sidebar
+        function syncSidebarSelectionState(slug) {
+            document.querySelectorAll(".sidebar-category-item-node").forEach(n => {
+                n.classList.remove("parent-selected-active", "menu-drawer-expanded");
+            });
+            document.querySelectorAll(".sub-category-li-node").forEach(n => {
+                n.classList.remove("child-selected-active");
+            });
+
+            if (!slug || slug === "" || slug === "all") return;
+
+            const matchingSidebarTarget = document.querySelector(`.sidebar-category-item-node[data-slug="${slug}"], .sub-category-li-node[data-slug="${slug}"]`);
+            
+            if (matchingSidebarTarget) {
+                if (matchingSidebarTarget.classList.contains("sub-category-li-node")) {
+                    matchingSidebarTarget.classList.add("child-selected-active");
+                    const parentNode = matchingSidebarTarget.closest(".sidebar-category-item-node");
+                    if (parentNode) {
+                        parentNode.classList.add("parent-selected-active", "menu-drawer-expanded");
+                    }
+                } else {
+                    matchingSidebarTarget.classList.add("parent-selected-active", "menu-drawer-expanded");
+                }
+            }
+        }
+
+        // Broad Clicks Listener Engine
+        document.body.addEventListener("click", function(e) {
+            const clickedTab = e.target.closest("[data-slug]");
+            
+            if (clickedTab) {
+                if (clickedTab.id === "catalog-products-display" || clickedTab.classList.contains("layout-toggle-controls")) return;
+                if (e.target.closest(".catalog-sidebar-accordion-wrapper")) return; 
+
+                e.preventDefault();
+                
+                const targetSlug = clickedTab.getAttribute("data-slug") || "";
+                currentCat = (targetSlug === "all") ? "" : targetSlug;
+                currentPage = 1;
+
+                // FIX: Check if we are already on a pretty, clean URL. 
+                // If so, preserve it instead of forcefully rewriting back to a query string.
+                let nextUrl = window.location.href;
+                if (window.location.pathname.includes("/products/") && prettyCategorySlug !== "") {
+                    // We are using clean paths; rewrite the path segment instead of adding ?sub_cat=
+                    const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/" + prettyCategorySlug));
+                    nextUrl = window.location.protocol + "//" + window.location.host + basePath + "/" + targetSlug + "/";
+                } else {
+                    // Standard query variable fallback rewrite
+                    nextUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?sub_cat=" + targetSlug;
+                }
+                
+                window.history.pushState({ path: nextUrl }, "", nextUrl);
+
+                document.querySelectorAll("[data-slug]").forEach(tabEl => {
+                    if (!tabEl.closest(".catalog-sidebar-accordion-wrapper")) {
+                        if (tabEl.getAttribute("data-slug") === targetSlug) {
+                            tabEl.classList.add("active-pill", "elementor-active", "active");
+                        } else {
+                            tabEl.classList.remove("active-pill", "elementor-active", "active");
+                        }
+                    }
+                });
+
+                syncSidebarSelectionState(targetSlug);
+                fetchProducts();
+            }
+
+            const pageLink = e.target.closest("#catalog-pagination-container a");
+            if (pageLink) {
+                e.preventDefault();
+                const linkHref = pageLink.getAttribute("href");
+                if (linkHref && linkHref.includes("?")) {
+                    const params = new URLSearchParams(linkHref.split("?")[1]);
+                    currentPage = params.get("paged") || 1;
+                } else {
+                    currentPage = 1;
+                }
+                fetchProducts();
+                if (displayBox) displayBox.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        });
+
+        // Layout View Controls
+        const gridBtn = document.getElementById("toggle-grid-btn");
+        const listBtn = document.getElementById("toggle-list-btn");
+
+        if (gridBtn && listBtn) {
+            gridBtn.addEventListener("click", function() {
+                viewMode = "products-layout-grid";
+                this.classList.add("active");
+                listBtn.classList.remove("active");
+                if (displayBox) displayBox.className = viewMode;
+            });
+
+            listBtn.addEventListener("click", function() {
+                viewMode = "products-layout-list";
+                this.classList.add("active");
+                gridBtn.classList.remove("active");
+                if (displayBox) displayBox.className = viewMode;
+            });
+        }
+
+        // Initialize display content and search trackers
+        initSearchListeners();
+        fetchProducts();
+    });
+    </script>
+    <style>
+    .acf-catalog-grid-wrapper { width: 100%; box-sizing: border-box; }
+    .smooth-fade { transition: opacity 0.15s ease-in-out; }
+    .catalog-grid-meta-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .count-digits { font-size: 14px; color: #64748b; font-weight: 500; }
+    .active-filter-highlight { color: #005A5B; font-weight: 600; }
+    
+    .layout-toggle-controls { display: inline-flex !important; gap: 4px !important; background: #f1f5f9 !important; padding: 4px !important; border-radius: 10px !important; }
+    .layout-btn { background: transparent !important; border: none !important; width: 36px !important; height: 36px !important; border-radius: 6px !important; color: #64748b !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; transition: all 0.15s ease !important; padding: 0 !important; }
+    .layout-btn:hover { color: #005A5B !important; }
+    .layout-btn.active { background: #ffffff !important; color: #005A5B !important; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important; }
+    
+    /* Grid Layout Base Structure */
+    .products-layout-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; width: 100%; }
+    @media (max-width: 1120px) { .products-layout-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .products-layout-grid { grid-template-columns: 1fr; } }
+    
+    /* FULL CARD WRAPPER - CLICKABLE ANCHOR HOVER STYLING */
+    .catalog-card-anchor {
+        text-decoration: none !important;
+        color: inherit !important;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        outline: none;
+    }
+
+    .catalog-card-item { 
+        background: #ffffff; 
+        border: 1px solid #e2e8f0; 
+        border-radius: 16px; 
+        overflow: hidden; 
+        display: flex; 
+        flex-direction: column; 
+        height: 100%;
+        transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); 
+    }
+    
+    /* Card Hover States applied through link focus/hover */
+    .catalog-card-anchor:hover .catalog-card-item,
+    .catalog-card-anchor:focus-within .catalog-card-item { 
+        transform: translateY(-4px); 
+        box-shadow: 0 12px 30px rgba(0,0,0,0.06); 
+        border-color: #cbd5e1; 
+    }
+    
+    .catalog-card-thumb { width: 100%; height: 230px; padding: 20px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; background: #ffffff; }
+    .catalog-card-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .catalog-card-content { padding: 24px; display: flex; flex-direction: column; flex-grow: 1; border-top: 1px solid #f1f5f9; }
+    
+    /* Header Row Area: Active Main Category Highlight / View All Dynamic Button */
+    .catalog-card-header-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .catalog-card-tag { font-size: 11px; font-weight: 600; color: #005A5B; text-transform: uppercase; letter-spacing: 0.3px; }
+    
+    /* Dynamic "View All" Redirect Link */
+    .catalog-card-view-all-link {
+        font-size: 11px;
+        font-weight: 700;
+        color: #64748b;
+        text-decoration: none !important;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding: 2px 6px;
+        background: #f1f5f9;
+        border-radius: 4px;
+        transition: all 0.15s ease;
+        position: relative;
+        z-index: 5; /* Ensures it sits over the parent standard clickable block card link */
+    }
+    .catalog-card-view-all-link:hover {
+        background: #005A5B;
+        color: #ffffff !important;
+    }
+
+    .catalog-card-title { font-size: 16px !important; font-weight: 600 !important; color: #1e293b !important; margin: 0 0 10px 0 !important; line-height: 1.4; }
+    .catalog-card-excerpt { font-size: 13.5px; color: #64748b; margin: 0 0 18px 0; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 44px; }
+    
+    /* Action Link */
+    .catalog-card-btn { 
+        display: inline-flex; 
+        align-items: center; 
+        gap: 6px; 
+        font-size: 13px; 
+        font-weight: 700; 
+        color: #005A5B; 
+        transition: transform 0.2s ease;
+        margin-top: auto; 
+    }
+    .catalog-card-anchor:hover .catalog-card-btn {
+        transform: translateX(4px);
+    }
+    
+    /* List Layout Structural Overrides */
+    .products-layout-list { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+    .products-layout-list .catalog-card-anchor { height: auto; }
+    .products-layout-list .catalog-card-item { flex-direction: row; align-items: center; padding: 16px; gap: 24px; }
+    .products-layout-list .catalog-card-thumb { width: 180px; height: 140px; padding: 0; flex-shrink: 0; }
+    .products-layout-list .catalog-card-content { padding: 0; border-top: none; }
+    .products-layout-list .catalog-card-excerpt { height: auto; margin-bottom: 10px; -webkit-line-clamp: 1; }
+    @media (max-width: 640px) { 
+        .products-layout-list .catalog-card-item { flex-direction: column; align-items: flex-start; padding: 20px; } 
+        .products-layout-list .catalog-card-thumb { width: 100%; height: 180px; } 
+    }
+    
+    #catalog-pagination-container { margin-top: 40px; display: flex; justify-content: center; }
+    #catalog-pagination-container ul { display: flex; list-style: none; padding: 0; margin: 0; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: #ffffff; }
+    #catalog-pagination-container li { border-right: 1px solid #e2e8f0; }
+    #catalog-pagination-container li:last-child { border-right: none; }
+    #catalog-pagination-container a, #catalog-pagination-container span.current { padding: 12px 18px; display: block; text-decoration: none; color: #475569; font-size: 14px; font-weight: 600; transition: all 0.15s ease; }
+    #catalog-pagination-container a:hover { background: #f8fafc; color: #005A5B; }
+    #catalog-pagination-container span.current { background: #005A5B; color: #ffffff; }
+    .catalog-empty-state { text-align: center; padding: 60px 40px; color: #64748b; font-size: 15px; width: 100%; border: 1px dashed #cbd5e1; border-radius: 16px; background: #f8fafc; }
+    </style>
+    ';
+
+    return $output;
+});
