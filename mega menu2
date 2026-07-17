@@ -1,0 +1,601 @@
+// 2. Main Mega Menu Renderer
+function bdh_register_dynamic_mega_menu_shortcode() {
+    ob_start();
+    ?>
+    <div class="bdh-mega-menu-wrapper">
+        <div class="bdh-mega-menu-container" id="bdhMegaMenuRoot">
+            <!-- 🖥️ DESKTOP PANEL -->
+            <div class="bdh-desktop-mega-panel">
+                <!-- Column 1: Parent Categories (Increased Width) -->
+                <div class="bdh-col-parents">
+                    <ul class="bdh-parent-list" id="bdhParentUl"></ul>
+                </div>
+                
+                <!-- Column 2: Sub-categories -->
+                <div class="bdh-col-subcategories" id="bdhSubcategoryCol"></div>
+                
+                <!-- Column 3: Direct Dynamic Products Grid -->
+                <div class="bdh-col-products-list">
+                    <div class="bdh-products-header-container">
+                        <span class="bdh-header-line"></span>
+                        <div class="bdh-products-header">PRODUCTS</div>
+                    </div>
+                    <ul class="bdh-direct-products-ul" id="bdhProductsUl"></ul>
+                    <a href="#" class="bdh-view-all-link" id="bdhViewAllLink">View all Products →</a>
+                </div>
+
+                <!-- Column 4: Featured Banner Card (Increased Size) -->
+                <div class="bdh-col-banner" id="bdhBannerCol">
+                    <div class="bdh-banner-card">
+                        <img id="bdhBannerImg" src="http://bdhmiddleeast.com/wp-content/uploads/2026/07/menu-testing-Bcjwg0rE.jpg" alt="Featured Category">
+                        <div class="bdh-banner-overlay">
+                            <span class="bdh-badge">FEATURED</span>
+                            <div id="bdhBannerTitle">Loading...</div>
+                            <a href="/products/" class="bdh-banner-btn" id="bdhBannerLink">Explore →</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 📱 MOBILE SLIDE PANEL -->
+            <div class="bdh-mobile-slider-panel">
+                <div class="bdh-slider-track" id="bdhMobileTrack">
+                    <!-- STEP 1 -->
+                    <div class="bdh-mob-step" id="mobStep1">
+                        <ul class="mob-drill-list" id="mobParentUl"></ul>
+                    </div>
+                    <!-- STEP 2 -->
+                    <div class="bdh-mob-step" id="mobStep2">
+                        <div class="mob-step-nav-bar">
+                            <button type="button" class="back-btn" id="backToStep1">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                                <span id="parentNavLabel">Back</span>
+                            </button>
+                        </div>
+                        <ul class="mob-drill-list" id="mobSubUl"></ul>
+                    </div>
+                    <!-- STEP 3 -->
+                    <div class="bdh-mob-step" id="mobStep3">
+                        <div class="mob-step-nav-bar">
+                            <button type="button" class="back-btn" id="backToStep2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                                <span id="subNavLabel">Back</span>
+                            </button>
+                        </div>
+                        <div class="mob-product-header" id="mobProductTitle">PRODUCTS</div>
+                        <ul class="mob-product-ul-links" id="mobProductUl"></ul>
+                        <a href="#" class="mob-final-view-all" id="mobFinalViewAllBtn">View all Products →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<script>
+(function() {
+    const siteUrl = window.location.origin;
+    const PRODUCT_TAXONOMY_SLUG = 'product-category';
+    let productFetchController = null;
+
+    function decodeHTML(html) {
+        const txt = document.createElement("textarea");
+        txt.innerHTML = html;
+        return txt.value;
+    }
+
+    const iconMap = {
+        'testing': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>`,
+        'turnkey': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>`,
+        'earth': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18m9-9H3m18 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+        'material': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0121 16z"/></svg>`,
+        'essential': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.5 8.25l-7.5 4.5-7.5-4.5m15 0v7.5l-7.5 4.5-7.5 4.5v-7.5m15 0l-7.5-4.5-7.5 4.5"/></svg>`,
+        'furniture': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7h16v7M4 14V4h16v10M12 4v10"/></svg>`,
+        'medical': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>`,
+        'calibration': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+        'service': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+        'default': `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>`
+    };
+
+    function getIcon(slug) {
+        const key = Object.keys(iconMap).find(k => slug.includes(k)) || 'default';
+        return iconMap[key];
+    }
+    
+    fetch(`${siteUrl}/wp-json/wp/v2/${PRODUCT_TAXONOMY_SLUG}?per_page=100`)
+    .then(res => res.json())
+    .then(categories => {
+        let parents = categories.filter(c => c.parent === 0);
+        
+        // 🛠️ Bulletproof explicit sorting match matrix
+        function getCategoryOrderIndex(category) {
+            const slug = category.slug.toLowerCase();
+            const decodedName = decodeHTML(category.name).toLowerCase();
+
+            // 1. Testing & Measurement (Isolate by ensuring it contains 'testing' but NOT 'material')
+            if (decodedName.includes('testing') && !decodedName.includes('material')) return 1;
+            if (slug.includes('testing') && !slug.includes('material')) return 1;
+            
+            // 2. Turnkey Laboratory Solutions
+            if (slug.includes('turnkey') || decodedName.includes('turnkey')) return 2;
+            
+            // 3. Earth Sciences & Environment Solutions
+            if (slug.includes('earth') || decodedName.includes('earth')) return 3;
+            
+            // 4. Material Testing Solutions
+            if (slug.includes('material') || decodedName.includes('material')) return 4;
+            
+            // 5. Essential Lab Resources
+            if (slug.includes('essential') || decodedName.includes('essential')) return 5;
+            
+            // 6. Lab Furniture
+            if (slug.includes('furniture') || decodedName.includes('furniture')) return 6;
+            
+            // 7. Medical & Life Science Solutions
+            if (slug.includes('medical') || decodedName.includes('medical')) return 7;
+            
+            // 8. Calibration Services as per ISO 17025
+            if (slug.includes('calibration') || decodedName.includes('calibration')) return 8;
+            
+            // 9. Service & Technical Support
+            if (slug.includes('service') || decodedName.includes('service') || decodedName.includes('technical')) return 9;
+            
+            return 999;
+        }
+
+        // Force rigorous numeric sort execution
+        parents.sort((a, b) => getCategoryOrderIndex(a) - getCategoryOrderIndex(b));
+
+        const menuData = parents.map(p => {
+            let subs = categories.filter(c => c.parent === p.id);
+            return {
+                parent_name: decodeHTML(p.name),
+                parent_slug: p.slug,
+                parent_id: p.id,
+                // Fixed: direct dynamic nested link logic
+                parent_url: `${siteUrl}/products/${p.slug}/`,
+                subcategories: subs.map(s => ({
+                    id: s.id,
+                    name: decodeHTML(s.name),
+                    slug: s.slug,
+                    // Fixed: subcategory points directly to /products/parent-slug/subcategory-slug/
+                    filter_url: `${siteUrl}/products/${p.slug}/${s.slug}/`
+                }))
+            }
+        });
+
+        renderMenuEngine(menuData);
+    }).catch(err => console.error("REST Error:", err));
+
+    function renderMenuEngine(menuData) {
+        const root = document.getElementById("bdhMegaMenuRoot");
+        if (!root) return;
+        
+        const dParentUl = root.querySelector("#bdhParentUl");
+        const mParentUl = root.querySelector("#mobParentUl");
+        const subCol = root.querySelector("#bdhSubcategoryCol");
+        const prodUl = root.querySelector("#bdhProductsUl");
+        const viewAllBtn = root.querySelector("#bdhViewAllLink");
+        const track = root.querySelector("#bdhMobileTrack");
+        const mobSubUl = root.querySelector("#mobSubUl");
+        
+        const bannerTitle = root.querySelector("#bdhBannerTitle");
+        const bannerLink = root.querySelector("#bdhBannerLink");
+
+        let activeParentIndex = 0;
+        let activeSubIndex = 0;
+
+        dParentUl.innerHTML = menuData.map((p, i) => `
+            <li class="bdh-parent-item ${i===0?'active':''}" data-index="${i}">
+                <a href="${p.parent_url}" class="bdh-item-left-side">
+                    <span class="bdh-icon-box">${getIcon(p.parent_slug)}</span>
+                    <span class="bdh-title-text">${p.parent_name}</span>
+                </a>
+                <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </li>
+        `).join('');
+
+        mParentUl.innerHTML = menuData.map((p, i) => `
+            <li class="mob-drill-item parent-trigger" data-index="${i}">
+                <a href="${p.parent_url}" class="bdh-item-left-side mob-direct-link">
+                    <span class="bdh-icon-box">${getIcon(p.parent_slug)}</span>
+                    <span class="bdh-title-text">${p.parent_name}</span>
+                </a>
+                <div class="mob-arrow-trigger">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                </div>
+            </li>
+        `).join('');
+
+        function loadProductsFromACF(subId, targetUl) {
+            if (productFetchController) {
+                productFetchController.abort();
+            }
+            productFetchController = new AbortController();
+            const signal = productFetchController.signal;
+
+            fetch(`${siteUrl}/wp-json/bdh/v1/products?cat_id=${subId}`, { signal })
+            .then(r => r.json())
+            .then(data => {
+                if(data && data.length > 0) {
+                    const sliceData = data.slice(0, 6);
+                    targetUl.innerHTML = sliceData.map(p => `
+                        <li>
+                            <a href="${p.link}">
+                                <svg class="prod-bullet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0121 16z"/></svg>
+                                <span>${decodeHTML(p.name)}</span>
+                            </a>
+                        </li>
+                    `).join('');
+                } else {
+                    targetUl.innerHTML = "<li><div class='bdh-single-line-notice'>No items assigned to this category.</div></li>";
+                }
+            }).catch(err => {
+                if (err.name !== 'AbortError') {
+                    targetUl.innerHTML = "<li><div class='bdh-single-line-notice'>No items assigned to this category.</div></li>";
+                }
+            });
+        }
+
+        function updateDesktopView() {
+            const currentParent = menuData[activeParentIndex];
+            if(!currentParent) return;
+
+            bannerTitle.textContent = currentParent.parent_name;
+            bannerLink.href = currentParent.parent_url;
+
+            if(!currentParent.subcategories || !currentParent.subcategories.length) {
+                subCol.innerHTML = "<div class='bdh-single-line-notice'>No sub-categories found.</div>";
+                prodUl.innerHTML = "<li><div class='bdh-single-line-notice'>No products.</div></li>";
+                return;
+            }
+            
+            const sliceSubs = currentParent.subcategories.slice(0, 8);
+
+            subCol.innerHTML = "<ul class='bdh-sub-list'>" + sliceSubs.map((s, i) => `
+                <li class="bdh-sub-item ${i===activeSubIndex?'active':''}" data-index="${i}">
+                    <a href="${s.filter_url}" class="bdh-sub-item-content">
+                        <span class="bdh-dot-indicator"></span>
+                        <span>${s.name}</span>
+                    </a>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                </li>
+            `).join('') + "</ul>";
+
+            const activeSub = sliceSubs[activeSubIndex];
+            if(activeSub) {
+                viewAllBtn.href = activeSub.filter_url;
+                viewAllBtn.textContent = `View all in ${activeSub.name} →`;
+                prodUl.innerHTML = "<li><div class='bdh-loader-span'>Loading items...</div></li>";
+                
+                loadProductsFromACF(activeSub.id, prodUl);
+            }
+        }
+
+        dParentUl.addEventListener("mouseover", (e) => {
+            const item = e.target.closest(".bdh-parent-item");
+            if(!item || item.classList.contains("active")) return;
+            
+            dParentUl.querySelectorAll(".bdh-parent-item").forEach(el => el.classList.remove("active"));
+            item.classList.add("active");
+            activeParentIndex = parseInt(item.getAttribute("data-index"));
+            activeSubIndex = 0;
+            updateDesktopView();
+        });
+
+        subCol.addEventListener("mouseover", (e) => {
+            const item = e.target.closest(".bdh-sub-item");
+            if (!item || item.classList.contains("active")) return;
+            
+            subCol.querySelectorAll(".bdh-sub-item").forEach(el => el.classList.remove("active"));
+            item.classList.add("active");
+            activeSubIndex = parseInt(item.getAttribute("data-index"));
+            updateDesktopView();
+        });
+
+        let selectedMobParent = null;
+        mParentUl.addEventListener("click", (e) => {
+            if(e.target.closest(".mob-direct-link")) return;
+
+            const item = e.target.closest(".parent-trigger");
+            if(!item) return;
+            
+            selectedMobParent = menuData[parseInt(item.getAttribute("data-index"))];
+            root.querySelector("#parentNavLabel").textContent = selectedMobParent.parent_name;
+            
+            mobSubUl.innerHTML = selectedMobParent.subcategories.map((s, i) => `
+                <li class="mob-drill-item sub-trigger" data-index="${i}">
+                    <a href="${s.filter_url}" class="mob-direct-link"><span>${s.name}</span></a>
+                    <div class="mob-arrow-trigger">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                </li>
+            `).join('');
+            track.style.transform = "translateX(-33.333%)";
+        });
+
+        mobSubUl.addEventListener("click", (e) => {
+            if(e.target.closest(".mob-direct-link")) return;
+
+            const item = e.target.closest(".sub-trigger");
+            if(!item) return;
+            const sub = selectedMobParent.subcategories[parseInt(item.getAttribute("data-index"))];
+            root.querySelector("#subNavLabel").textContent = sub.name;
+            root.querySelector("#mobProductTitle").textContent = "PRODUCTS";
+            root.querySelector("#mobFinalViewAllBtn").href = sub.filter_url;
+            
+            const mProdUl = root.querySelector("#mobProductUl");
+            mProdUl.innerHTML = "<li>Loading items...</li>";
+            track.style.transform = "translateX(-66.666%)";
+            
+            fetch(`${siteUrl}/wp-json/bdh/v1/products?cat_id=${sub.id}`)
+            .then(r => r.json())
+            .then(data => {
+                if(data && data.length) {
+                    mProdUl.innerHTML = data.slice(0, 6).map(p => `<li><a href="${p.link}">${decodeHTML(p.name)}</a></li>`).join('');
+                } else {
+                    mProdUl.innerHTML = "<li>No items assigned to this category.</li>";
+                }
+            }).catch(() => {
+                mProdUl.innerHTML = "<li>No items assigned to this category.</li>";
+            });
+        });
+
+        root.querySelector("#backToStep1").addEventListener("click", () => track.style.transform = "translateX(0%)");
+        root.querySelector("#backToStep2").addEventListener("click", () => track.style.transform = "translateX(-33.333%)");
+
+        updateDesktopView();
+    }
+})();
+</script>
+
+    <style>
+    :root {
+        --bdh-teal: #006747;
+        --bdh-teal-light: #edf6f4;
+        --bdh-text-dark: #0f172a;
+        --bdh-text-muted: #475569;
+        --bdh-text-light: #94a3b8;
+        --bdh-font-stack: "Montserrat", sans-serif;
+    }
+
+    .bdh-mega-menu-wrapper {
+        display: block !important;
+        position: absolute !important;
+        top: 100% !important;
+        left: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        background: #ffffff !important;
+        z-index: 999999 !important;
+    }
+
+    .bdh-mega-menu-container { 
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        font-family: var(--bdh-font-stack); 
+        background: #ffffff !important; 
+        box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.08) !important;
+    }
+
+    .bdh-desktop-mega-panel { 
+        display: grid !important; 
+        grid-template-columns: 340px 340px 1fr 300px !important;
+        width: 100% !important;
+        max-width: 1440px !important;
+        margin: 0 auto !important;
+        background: #ffffff !important; 
+        box-sizing: border-box !important;
+        min-height: 520px !important;
+    }
+    
+    .bdh-col-parents { background: #ffffff !important; padding: 30px 20px !important; border-right: 1px solid #f1f5f9 !important; }
+    .bdh-col-subcategories { background: #f8fafc !important; padding: 30px 20px !important; border-right: 1px solid #f1f5f9 !important; }
+    .bdh-col-products-list { background: #ffffff !important; padding: 30px 35px !important; display: flex !important; flex-direction: column !important; }
+    .bdh-col-banner { background: #ffffff !important; padding: 30px 20px !important; display: flex !important; align-items: flex-start !important; justify-content: center !important; }
+
+    .bdh-parent-list { list-style: none !important; padding: 0 !important; margin: 0 !important; display: flex !important; flex-direction: column !important; gap: 6px !important; }
+    
+    .bdh-parent-item { 
+        display: flex !important; 
+        align-items: center !important; 
+        justify-content: space-between !important; 
+        padding: 0 !important; 
+        font-size: 16px !important; 
+        font-weight: 500 !important; 
+        color: var(--bdh-text-muted) !important; 
+        cursor: pointer !important; 
+        border-radius: 8px !important; 
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        border: 1px solid transparent !important;
+    }
+    .bdh-item-left-side { 
+        display: flex !important; 
+        align-items: center !important; 
+        gap: 14px !important; 
+        text-decoration: none !important; 
+        color: inherit !important; 
+        padding: 12px 16px !important;
+        flex-grow: 1 !important;
+    }
+    
+    .bdh-icon-box { 
+        display: flex !important; 
+        align-items: center !important; 
+        justify-content: center !important; 
+        width: 36px !important; 
+        height: 36px !important; 
+        background: transparent !important; 
+        color: #64748b !important; 
+        border-radius: 8px !important; 
+        padding: 4px !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    .bdh-icon-box svg { width: 100% !important; height: 100% !important; }
+    .bdh-parent-item .chevron { opacity: 0 !important; color: var(--bdh-teal) !important; transition: all 0.2s !important; transform: translateX(-4px); margin-right: 16px !important; }
+    
+    .bdh-parent-item.active { 
+        background: #f4f6f8 !important; 
+        color: var(--bdh-teal) !important; 
+        font-weight: 600 !important;
+        border-color: #e2e8f0 !important;
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05) !important;
+    }
+    .bdh-parent-item.active .bdh-icon-box { 
+        background: var(--bdh-teal) !important; 
+        color: #ffffff !important; 
+    }
+    .bdh-parent-item.active .chevron { opacity: 1 !important; transform: translateX(0); }
+    
+    .bdh-sub-list { list-style: none !important; padding: 0 !important; margin: 0 !important; display: flex !important; flex-direction: column !important; gap: 6px !important; }
+    
+    .bdh-sub-item { 
+        display: flex !important; 
+        align-items: center !important; 
+        justify-content: space-between !important; 
+        padding: 0 !important; 
+        font-size: 16px !important; 
+        font-weight: 500 !important; 
+        color: var(--bdh-text-muted) !important; 
+        cursor: pointer !important; 
+        border-radius: 8px !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        border: 1px solid transparent !important;
+    }
+    .bdh-sub-item-content { 
+        display: flex !important; 
+        align-items: center !important; 
+        gap: 10px !important; 
+        text-decoration: none !important; 
+        color: inherit !important; 
+        padding: 12px 16px !important;
+        flex-grow: 1 !important;
+    }
+    
+    .bdh-dot-indicator {
+        width: 7px !important;
+        height: 7px !important;
+        border-radius: 50% !important;
+        background-color: var(--bdh-text-light) !important;
+        flex-shrink: 0 !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    .bdh-sub-item span { white-space: normal !important; line-height: 1.3 !important; }
+    .bdh-sub-item svg { opacity: 0 !important; color: var(--bdh-teal) !important; flex-shrink: 0 !important; margin-right: 16px !important; transition: all 0.2s ease !important; }
+    
+    .bdh-sub-item:hover, .bdh-sub-item.active { 
+        color: var(--bdh-teal) !important; 
+        font-weight: 600 !important; 
+        background: #ffffff !important; 
+        border-color: #e2e8f0 !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03) !important; 
+    }
+    .bdh-sub-item:hover .bdh-dot-indicator, .bdh-sub-item.active .bdh-dot-indicator {
+        background-color: var(--bdh-teal) !important;
+        transform: scale(1.2);
+    }
+    .bdh-sub-item.active svg { opacity: 1 !important; }
+    
+    .bdh-products-header-container {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-bottom: 24px !important;
+    }
+    .bdh-header-line {
+        width: 16px !important;
+        height: 2px !important;
+        background-color: var(--bdh-teal) !important;
+        display: inline-block !important;
+    }
+    .bdh-products-header { 
+        font-size: 13px !important; 
+        font-weight: 700 !important; 
+        color: var(--bdh-teal) !important; 
+        letter-spacing: 1.5px !important; 
+    }
+    
+    .bdh-direct-products-ul { list-style: none !important; padding: 0 !important; margin: 0 !important; display: flex !important; flex-direction: column !important; gap: 16px !important; }
+    
+    .bdh-direct-products-ul li a { 
+        font-size: 16px !important; 
+        color: var(--bdh-text-muted) !important; 
+        text-decoration: none !important; 
+        display: flex !important; 
+        align-items: flex-start !important; 
+        gap: 12px !important; 
+        line-height: 1.4 !important; 
+        transition: all 0.2s ease !important; 
+    }
+    .bdh-direct-products-ul li a svg { width: 16px; height: 16px; color: var(--bdh-text-light); margin-top: 3px; flex-shrink: 0 !important; transition: color 0.2s ease !important; }
+    .bdh-direct-products-ul li a:hover { color: var(--bdh-teal) !important; transform: translateX(2px); }
+    .bdh-direct-products-ul li a:hover svg { color: var(--bdh-teal) !important; }
+    
+    .bdh-view-all-link { margin-top: auto !important; font-size: 15px !important; font-weight: 600 !important; color: var(--bdh-teal) !important; text-decoration: none !important; padding-top: 24px !important; transition: transform 0.2s ease !important; display: inline-block; }
+    .bdh-view-all-link:hover { transform: translateX(4px); }
+    
+    .bdh-banner-card { 
+        position: relative !important; 
+        width: 100% !important; 
+        height: 310px !important; 
+        border-radius: 14px !important; 
+        overflow: hidden !important; 
+        box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.08) !important;
+    }
+    .bdh-banner-card img { width: 100% !important; height: 100% !important; object-fit: cover !important; position: absolute !important; top:0 !important; left:0 !important; }
+    .bdh-banner-overlay { position: absolute !important; inset: 0 !important; background: linear-gradient(to top, rgba(0, 103, 71, 0.95) 0%, rgba(15, 23, 42, 0.1) 100%) !important; display: flex !important; flex-direction: column !important; justify-content: flex-end !important; padding: 24px !important; color: #ffffff !important; }
+    .bdh-badge { background: #22c55e !important; color: white !important; font-size: 10px !important; font-weight: 700 !important; padding: 4px 10px !important; border-radius: 4px !important; width: fit-content !important; letter-spacing: 1px !important; margin-bottom: 8px !important; }
+    .bdh-banner-overlay div { font-size: 20px !important; font-weight: 700 !important; margin: 0 0 14px 0 !important; color: #ffffff !important; line-height: 1.3 !important; font-family: var(--bdh-font-stack); }
+    .bdh-banner-btn { background: #ffffff !important; color: var(--bdh-teal) !important; padding: 10px 20px !important; border-radius: 6px !important; font-size: 14px !important; font-weight: 600 !important; text-decoration: none !important; width: fit-content !important; transition: all 0.2s ease !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
+    .bdh-banner-btn:hover { background: var(--bdh-teal-light) !important; transform: translateY(-1px); }
+
+    .bdh-single-line-notice { font-size: 15px !important; color: var(--bdh-text-light) !important; font-style: italic !important; }
+    .bdh-loader-span { font-size: 15px !important; color: var(--bdh-teal) !important; }
+
+    .bdh-mobile-slider-panel { display: none !important; width: 100% !important; overflow: hidden !important; background: #ffffff !important; }
+    .bdh-slider-track { display: flex !important; width: 300% !important; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) ease !important; }
+    .bdh-mob-step { width: 33.333% !important; flex-shrink: 0 !important; min-height: 340px !important; background: #ffffff !important; padding: 10px 0 !important; }
+    
+    .mob-drill-list { list-style: none !important; padding: 0 !important; margin: 0 !important; }
+    .mob-drill-item { display: flex !important; align-items: center !important; justify-content: space-between !important; padding: 0 !important; border-bottom: 1px solid #f1f5f9 !important; font-size: 16px !important; color: var(--bdh-text-dark) !important; }
+    
+    /* Mobile direct navigation link layout alignment adjustments */
+    .mob-direct-link {
+        display: flex !important;
+        align-items: center !important;
+        gap: 14px !important;
+        text-decoration: none !important;
+        color: inherit !important;
+        padding: 16px 20px !important;
+        flex-grow: 1 !important;
+    }
+    .mob-arrow-trigger {
+        padding: 16px 20px !important;
+        color: var(--bdh-text-light) !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    .mob-step-nav-bar { padding: 12px 15px !important; background: #f8fafc !important; border-bottom: 1px solid #e2e8f0 !important; }
+    .back-btn { display: flex !important; align-items: center !important; gap: 5px !important; background: transparent !important; border: none !important; font-size: 15px !important; font-weight: 600 !important; color: var(--bdh-teal) !important; cursor: pointer !important; }
+    .mob-product-header { padding: 16px 20px 6px !important; font-size: 13px !important; font-weight: 700 !important; color: var(--bdh-teal) !important; letter-spacing: 1px !important; }
+    .mob-product-ul-links { list-style: none !important; padding: 0 20px !important; margin: 0 !important; }
+    .mob-product-ul-links li { padding: 14px 0 !important; border-bottom: 1px solid #f8fafc !important; }
+    .mob-product-ul-links li a { text-decoration: none !important; color: var(--bdh-text-muted) !important; font-size: 16px !important; }
+    .mob-final-view-all { display: block !important; padding: 16px 20px !important; font-size: 15px !important; font-weight: 600 !important; color: var(--bdh-teal) !important; text-decoration: none !important; }
+
+    @media (max-width: 991px) {
+        .bdh-mega-menu-wrapper { position: relative !important; width: 100% !important; left: 0 !important; margin: 0 !important; }
+        .bdh-desktop-mega-panel { display: none !important; }
+        .bdh-mobile-slider-panel { display: block !important; }
+    }
+    </style>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('bdh_dynamic_mega_menu', 'bdh_register_dynamic_mega_menu_shortcode');
