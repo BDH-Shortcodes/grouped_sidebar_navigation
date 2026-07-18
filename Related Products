@@ -1,0 +1,155 @@
+// 1. PERFECTED TOP BADGE SHORTCODE: [product_subcategory_badge] -> HIDES MAIN CATEGORY & DISPLAYS ONLY SUBCATEGORY
+add_shortcode('product_subcategory_badge', function() {
+    $current_product_id = get_queried_object_id();
+    if ( ! $current_product_id ) return '';
+
+    // Get all terms assigned to this custom product post
+    $terms = wp_get_post_terms( $current_product_id, 'product_cat', array( 'fields' => 'all' ) );
+    $sub_category_name = '';
+
+    if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+        foreach ( $terms as $term ) {
+            // STRICT REJECTION: If parent ID is 0, it is a main category. Skip it completely!
+            if ( $term->parent !== 0 ) {
+                $sub_category_name = $term->name;
+                break; // Found the subcategory, stop the loop immediately
+            }
+        }
+        
+        // Fallback safety filter: If the product ONLY has a main category and NO subcategory, show the main category
+        if ( empty($sub_category_name) && isset($terms[0]) ) {
+            $sub_category_name = $terms[0]->name;
+        }
+    }
+
+    if ( empty($sub_category_name) ) {
+        return '';
+    }
+
+    // Return the clean typography component wrapper
+    return '<div class="dynamic-subcat-badge" style="font-size: 0.95rem; font-weight: 600; color: #0d9488; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; display: inline-block; font-family: sans-serif;">' . esc_html( $sub_category_name ) . '</div>';
+});
+
+
+// 2. PERFECTED RELATED PRODUCTS GRID SHORTCODE: [dynamic_related_products] -> EDGE-TO-EDGE LOVABLE IMAGE LAYOUT
+add_shortcode('dynamic_related_products', function() {
+    $current_product_id = get_queried_object_id();
+    if ( ! $current_product_id ) return '';
+
+    // Defaults
+    $category_name = 'Testing & Measurement'; 
+    $category_link = home_url('/products/testing-and-measurement/'); 
+    $main_category_id = null;
+
+    $terms = wp_get_post_terms( $current_product_id, 'product_cat', array( 'fields' => 'all' ) );
+
+    if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+        foreach ( $terms as $term ) {
+            if ( $term->parent == 0 ) {
+                $main_category_id = $term->term_id;
+                $category_name = $term->name;
+                $category_link = get_term_link( $term );
+                break;
+            }
+        }
+        if ( ! $main_category_id && isset($terms[0]) ) {
+            if ( $terms[0]->parent != 0 ) {
+                $main_category_id = $terms[0]->parent;
+                $parent_term = get_term_by('id', $terms[0]->parent, 'product_cat');
+                if ( $parent_term ) {
+                    $category_name = $parent_term->name;
+                    $category_link = get_term_link( $parent_term );
+                }
+            }
+        }
+    }
+
+    if ( is_wp_error( $category_link ) || empty($category_link) ) {
+        $category_link = home_url('/products/testing-and-measurement/');
+    }
+
+    $args = array(
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => 3,
+        'post__not_in'   => array( $current_product_id ),
+        'orderby'        => 'rand',
+    );
+
+    if ( $main_category_id ) {
+        $args['tax_query'] = array(
+            array(
+                'taxonomy' => 'product_cat',
+                'field'    => 'term_id',
+                'terms'    => array($main_category_id),
+            ),
+        );
+    }
+
+    $query = new WP_Query( $args );
+    $found_posts = $query->posts;
+
+    if ( empty($found_posts) ) {
+        return '';
+    }
+
+    // THE EDGE-TO-EDGE IMAGE INTERFACE (MATCHES LOVABLE INTERFACE DESIGN PREVIEW)
+    $output = '<style>
+        .lovable-container-block { width: 100% !important; margin: 40px auto !important; display: block !important; clear: both !important; font-family: sans-serif !important; }
+        .lovable-header-row { display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; margin-bottom: 24px !important; }
+        .lovable-title-text { font-size: 2rem !important; font-weight: 700 !important; color: #1e293b !important; margin: 0 !important; }
+        .lovable-link-action { font-size: 0.95rem !important; font-weight: 600 !important; color: #0d9488 !important; text-decoration: none !important; display: inline-flex !important; align-items: center !important; gap: 6px !important; }
+        .lovable-row-grid { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important; gap: 24px !important; width: 100% !important; }
+        @media (max-width: 640px) { .lovable-header-row { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; } }
+        .lovable-item-card { background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 16px !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; text-decoration: none !important; box-shadow: 0 1px 3px rgba(0,0,0,0.02) !important; transition: transform 0.22s ease, box-shadow 0.22s ease !important; }
+        .lovable-item-card:hover { transform: translateY(-4px) !important; box-shadow: 0 12px 20px -5px rgba(0,0,0,0.08) !important; }
+        
+        /* FULL EDGE-TO-EDGE IMAGE ENGINE FIX */
+        .lovable-image-frame { width: 100% !important; height: 250px !important; background: #f8fafc !important; display: block !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; border-bottom: 1px solid #f1f5f9 !important; }
+        .lovable-image-frame img { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; margin: 0 !important; padding: 0 !important; }
+        
+        .lovable-body-frame { padding: 20px !important; display: flex !important; flex-direction: column !important; gap: 8px !important; flex-grow: 1 !important; background: #ffffff !important; }
+        .lovable-body-title { font-size: 1.15rem !important; font-weight: 700 !important; color: #0f172a !important; margin: 0 !important; text-align: left !important; line-height: 1.4 !important; }
+        .lovable-body-desc { font-size: 0.92rem !important; color: #64748b !important; margin: 0 !important; line-height: 1.6 !important; text-align: left !important; }
+    </style>';
+
+    $output .= '<div class="lovable-container-block">';
+    $output .= '<div class="lovable-header-row">';
+    $output .= '<h2 class="lovable-title-text">Related Products</h2>';
+    $output .= '<a href="' . esc_url( $category_link ) . '" class="lovable-link-action">';
+    $output .= 'View all in ' . esc_html( $category_name );
+    $output .= ' <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+    $output .= '</a>';
+    $output .= '</div>';
+    $output .= '<div class="lovable-row-grid">';
+
+    foreach ( $found_posts as $post_obj ) {
+        $loop_id = $post_obj->ID;
+        $img_url = get_the_post_thumbnail_url( $loop_id, 'large' ) ?: '';
+
+        $raw_desc = $post_obj->post_excerpt ? $post_obj->post_excerpt : $post_obj->post_content;
+        if ( empty($raw_desc) ) {
+            $raw_desc = get_the_excerpt($loop_id);
+        }
+        $excerpt = wp_trim_words( wp_strip_all_tags( $raw_desc ), 14, '...' );
+
+        $output .= '<a href="' . esc_url( get_permalink( $loop_id ) ) . '" class="lovable-item-card">';
+        $output .= '<div class="lovable-image-frame">';
+        if ( $img_url ) {
+            $output .= '<img src="' . esc_url( $img_url ) . '" alt="' . esc_attr( get_the_title( $loop_id ) ) . '">';
+        }
+        $output .= '</div>';
+        $output .= '<div class="lovable-body-frame">';
+        $output .= '<h3 class="lovable-body-title">' . esc_html( get_the_title( $loop_id ) ) . '</h3>';
+        if ( ! empty($excerpt) ) {
+            $output .= '<p class="lovable-body-desc">' . esc_html( $excerpt ) . '</p>';
+        } else {
+            $output .= '<p class="lovable-body-desc">Discover precision metrics and product configurations.</p>';
+        }
+        $output .= '</div>';
+        $output .= '</a>';
+    }
+
+    $output .= '</div></div>';
+    return $output;
+});
