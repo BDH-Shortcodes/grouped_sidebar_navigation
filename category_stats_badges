@@ -1,0 +1,98 @@
+// SHORTCODE: [category_stats_badges] - LIVE TAXONOMY FIX
+add_shortcode('category_stats_badges', function() {
+    $subcat_count = 0;
+    $product_count = 0;
+    $parent_id = 0;
+    $taxonomy_slug = 'product-category'; // UPDATED: Changed from product_cat to match your exact setup
+
+    // METHOD 1: Standard WordPress Archive Object scan
+    $current_term = get_queried_object();
+    if ( isset($current_term->taxonomy) && $current_term->taxonomy === $taxonomy_slug ) {
+        $parent_id = ($current_term->parent == 0) ? $current_term->term_id : $current_term->parent;
+    }
+
+    // METHOD 2: URL Slug extraction fallback (Fixes customized permalink routes)
+    if ( ! $parent_id ) {
+        $url_path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+        $url_segments = explode('/', $url_path);
+        
+        // Grab the very last text segment from your link address bar string
+        $potential_slug = end($url_segments);
+        
+        if ( ! empty($potential_slug) ) {
+            $term_lookup = get_term_by('slug', $potential_slug, $taxonomy_slug);
+            if ( $term_lookup && ! is_wp_error($term_lookup) ) {
+                $parent_id = ($term_lookup->parent == 0) ? $term_lookup->term_id : $term_lookup->parent;
+            }
+        }
+    }
+
+    // METHOD 3: Global product context block check loop
+    if ( ! $parent_id ) {
+        global $post;
+        $product_id = isset($post->ID) ? $post->ID : get_the_ID();
+        if ( $product_id ) {
+            $terms = wp_get_post_terms($product_id, $taxonomy_slug, array('fields' => 'all'));
+            if ( ! empty($terms) && ! is_wp_error($terms) ) {
+                foreach ( $terms as $term ) {
+                    if ( $term->parent == 0 ) {
+                        $parent_id = $term->term_id;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // If a valid category was caught by any of our detectors, fetch live data tallies
+    if ( $parent_id ) {
+        // 1. Calculate matching child subcategories
+        $sub_categories = get_terms(array(
+            'taxonomy'   => $taxonomy_slug,
+            'parent'     => $parent_id,
+            'hide_empty' => false, // Keep false to fetch empty terms
+        ));
+        $subcat_count = !is_wp_error($sub_categories) ? count($sub_categories) : 0;
+
+        // 2. Aggregate active published products associated with this parent group
+        $products_query = new WP_Query(array(
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'tax_query'      => array(
+                array(
+                    'taxonomy'         => $taxonomy_slug,
+                    'field'            => 'term_id',
+                    'terms'            => $parent_id,
+                    'include_children' => true,
+                    'operator'         => 'IN',
+                ),
+            ),
+        ));
+        $product_count = $products_query->post_count;
+    }
+
+    // FIXED: Hardcoded check rules ("= 2") completely removed to allow real values to display safely.
+
+    // HTML Output Structure (Lovable Clean Badge Design UI styled to match your new #225b77 brand color)
+    $output = '<div class="lovable-stats-badges-container" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; font-family: sans-serif;">';
+    
+    // Sub-categories Pill Label
+    $output .= '<div style="display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: #f4f8fa; border: 1px solid #d4e3eb; border-radius: 20px; font-size: 0.88rem; font-weight: 500; color: #225b77;">';
+    $output .= '📁 <span>' . $subcat_count . ' sub-categories</span>';
+    $output .= '</div>';
+
+    // Products Total Count Pill Label
+    $output .= '<div style="display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: #f4f8fa; border: 1px solid #d4e3eb; border-radius: 20px; font-size: 0.88rem; font-weight: 500; color: #225b77;">';
+    $output .= '📦 <span>' . $product_count . ' products</span>';
+    $output .= '</div>';
+
+    // ISO Compliance Trust Pill Label
+    $output .= '<div style="display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: #f4f8fa; border: 1px solid #d4e3eb; border-radius: 20px; font-size: 0.88rem; font-weight: 500; color: #225b77;">';
+    $output .= '🛡️ <span>ISO certified partners</span>';
+    $output .= '</div>';
+
+    $output .= '</div>';
+    return $output;
+});
