@@ -1,0 +1,23 @@
+add_shortcode('single_sub_category', function() {
+    global $post;
+    // Replace 'category' with your actual custom taxonomy slug if it's not standard posts
+    $terms = get_the_terms($post->ID, 'category'); 
+    
+    if (empty($terms) || is_wp_error($terms)) {
+        return '';
+    }
+    
+    // Filter to find terms that have a parent (meaning they are sub-categories)
+    $child_terms = array_filter($terms, function($term) {
+        return $term->parent !== 0;
+    });
+    
+    // If a sub-category exists, get the first one. Otherwise, fallback to the main category.
+    $chosen_term = !empty($child_terms) ? reset($child_terms) : reset($terms);
+    
+    if ($chosen_term) {
+        return '<span class="custom-subcat-badge">' . esc_html($chosen_term->name) . '</span>';
+    }
+    
+    return '';
+});
