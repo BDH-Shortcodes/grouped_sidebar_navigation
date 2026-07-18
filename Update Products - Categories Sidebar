@@ -1,0 +1,357 @@
+/**
+ * COMPONENT: [acf_master_products_sidebar]
+ * Fully Functional AJAX Sidebar Filter with Permanent Chevrons & Category Detail Links
+ */
+add_shortcode('acf_master_products_sidebar', function() {
+    // 1. Fetch and sort parent terms to match the custom menu layout order
+    $parent_terms = get_terms(array(
+        'taxonomy'   => 'product-category',
+        'hide_empty' => false,
+        'parent'     => 0
+    ));
+
+    if (!is_wp_error($parent_terms) && !empty($parent_terms)) {
+        usort($parent_terms, function($a, $b) {
+            $getCategoryOrderIndex = function($category) {
+                $slug = strtolower($category->slug);
+                $name = html_entity_decode(strtolower($category->name));
+
+                if ((strpos($name, 'testing') !== false && strpos($slug, 'material') === false) || 
+                    (strpos($slug, 'testing') !== false && strpos($slug, 'material') === false)) {
+                    return 1;
+                }
+                if (strpos($slug, 'turnkey') !== false || strpos($name, 'turnkey') !== false) return 2;
+                if (strpos($slug, 'earth') !== false || strpos($name, 'earth') !== false) return 3;
+                if (strpos($slug, 'material') !== false || strpos($name, 'material') !== false) return 4;
+                if (strpos($slug, 'essential') !== false || strpos($name, 'essential') !== false) return 5;
+                if (strpos($slug, 'furniture') !== false || strpos($name, 'furniture') !== false) return 6;
+                if (strpos($slug, 'medical') !== false || strpos($name, 'medical') !== false) return 7;
+                if (strpos($slug, 'calibration') !== false || strpos($name, 'calibration') !== false) return 8;
+                if (strpos($slug, 'service') !== false || strpos($name, 'service') !== false || strpos($name, 'technical') !== false) return 9;
+
+                return 999;
+            };
+            return $getCategoryOrderIndex($a) - $getCategoryOrderIndex($b);
+        });
+    }
+
+    // 2. Define Category Icon SVGs
+    $iconMap = array(
+        'testing'     => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>',
+        'turnkey'     => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>',
+        'earth'       => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18m9-9H3m18 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+        'material'    => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0121 16z"/></svg>',
+        'essential'   => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.5 8.25l-7.5 4.5-7.5-4.5m15 0v7.5l-7.5 4.5-7.5 4.5v-7.5m15 0l-7.5-4.5-7.5 4.5"/></svg>',
+        'furniture'   => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7h16v7M4 14V4h16v10M12 4v10"/></svg>',
+        'medical'     => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>',
+        'calibration' => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+        'service'     => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+        'default'     => '<svg class="sidebar-node-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>'
+    );
+
+    $output = '<div class="catalog-sidebar-accordion-wrapper">';
+    $output .= '  <h3 class="sidebar-main-title">CATEGORIES</h3>';
+    $output .= '  <div class="sidebar-nodes-list">';
+
+    if (!is_wp_error($parent_terms) && !empty($parent_terms)) {
+        foreach ($parent_terms as $parent) {
+            $child_terms = get_terms(array(
+                'taxonomy'   => 'product-category',
+                'hide_empty' => false,
+                'parent'     => $parent->term_id
+            ));
+            
+            $has_children = (!is_wp_error($child_terms) && !empty($child_terms)) ? true : false;
+            $node_class = $has_children ? 'has-sub-menu' : 'leaf-node';
+
+            // Match icon
+            $matched_icon = $iconMap['default'];
+            foreach ($iconMap as $key => $svg) {
+                if (stripos($parent->slug, $key) !== false) {
+                    $matched_icon = $svg;
+                    break;
+                }
+            }
+
+            $site_url = home_url();
+            $parent_details_url = $site_url . '/products/' . $parent->slug . '/';
+
+            $output .= '    <div class="sidebar-category-item-node ' . $node_class . '" data-slug="' . esc_attr($parent->slug) . '">';
+            $output .= '      <div class="category-header-row">';
+            
+            // Left click zone
+            $output .= '        <a href="#" class="sidebar-category-action-trigger" data-slug="' . esc_attr($parent->slug) . '">';
+            $output .= '          <span class="sidebar-icon-container">' . $matched_icon . '</span>';
+            $output .= '          <span class="category-title-span">' . esc_html(html_entity_decode($parent->name)) . '</span>';
+            $output .= '        </a>';
+            
+            // Interactive Chevron Button - Always rendered and visible
+            if ($has_children) {
+                $output .= '        <button type="button" class="submenu-accordion-indicator-btn" aria-label="Toggle Submenu">';
+                $output .= '          <svg class="chevron-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+                $output .= '        </button>';
+            } else {
+                $output .= '        <div class="submenu-accordion-indicator-btn leaf-pointer">';
+                $output .= '          <svg class="chevron-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+                $output .= '        </div>';
+            }
+            
+            $output .= '      </div>';
+
+            // Drawer content
+            if ($has_children) {
+                $output .= '      <div class="sidebar-child-dropdown-drawer">';
+                $output .= '        <div class="sidebar-details-promo-card">';
+                $output .= '          <p>Looking for technical specifications & custom services?</p>';
+                $output .= '          <a href="' . esc_url($parent_details_url) . '" class="promo-details-btn">Explore ' . esc_html(html_entity_decode($parent->name)) . ' Details →</a>';
+                $output .= '        </div>';
+
+                $output .= '        <ul class="sub-category-list-elements">';
+                foreach ($child_terms as $child) {
+                    $output .= '          <li>';
+                    $output .= '            <a href="#" class="sidebar-category-action-trigger child-link" data-slug="' . esc_attr($child->slug) . '">' . esc_html(html_entity_decode($child->name)) . '</a>';
+                    $output .= '          </li>';
+                }
+                $output .= '        </ul>';
+                $output .= '      </div>';
+            }
+
+            $output .= '    </div>'; 
+        }
+    } else {
+        $output .= '    <p style="font-size:13px; color:#64748b; padding:10px;">No product categories found.</p>';
+    }
+
+    $output .= '  </div>';
+    $output .= '</div>';
+
+    // JS Action Script
+    $output .= '
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const accordionNodes = document.querySelectorAll(".sidebar-category-item-node.has-sub-menu");
+        
+        accordionNodes.forEach(node => {
+            const toggleBtn = node.querySelector(".submenu-accordion-indicator-btn");
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const isOpen = node.classList.contains("menu-drawer-expanded");
+                    
+                    accordionNodes.forEach(sibling => {
+                        if (sibling !== node) {
+                            sibling.classList.remove("menu-drawer-expanded");
+                        }
+                    });
+
+                    if (isOpen) {
+                        node.classList.remove("menu-drawer-expanded");
+                    } else {
+                        node.classList.add("menu-drawer-expanded");
+                    }
+                });
+            }
+        });
+
+        document.body.addEventListener("click", function(e) {
+            const sidebarTrigger = e.target.closest(".sidebar-category-action-trigger");
+            if (sidebarTrigger) {
+                e.preventDefault();
+                const targetSlug = sidebarTrigger.getAttribute("data-slug");
+
+                document.querySelectorAll(".sidebar-category-action-trigger").forEach(el => {
+                    el.classList.remove("active-node-link");
+                });
+                sidebarTrigger.classList.add("active-node-link");
+
+                document.querySelectorAll(".category-pill-nav-btn").forEach(pill => {
+                    if (pill.getAttribute("data-slug") === targetSlug) {
+                        pill.classList.add("active-pill");
+                    } else {
+                        pill.classList.remove("active-pill");
+                    }
+                });
+
+                const parentNode = sidebarTrigger.closest(".sidebar-category-item-node.has-sub-menu");
+                if (parentNode && !sidebarTrigger.classList.contains("child-link")) {
+                    if (!parentNode.classList.contains("menu-drawer-expanded")) {
+                        accordionNodes.forEach(sibling => sibling.classList.remove("menu-drawer-expanded"));
+                        parentNode.classList.add("menu-drawer-expanded");
+                    }
+                }
+
+                if (typeof window.triggerCatalogAjaxFilter === "function") {
+                    window.triggerCatalogAjaxFilter(targetSlug, "");
+                }
+            }
+        });
+    });
+    </script>
+    
+    <style>
+    /* Wrapper Styles */
+    .catalog-sidebar-accordion-wrapper {
+        width: 100%;
+        background: #ffffff;
+        border: 1px solid #edf2f7;
+        border-radius: 16px;
+        padding: 24px;
+        box-sizing: border-box;
+    }
+    .sidebar-main-title {
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        color: #1e293b !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        margin: 0 0 18px 0 !important;
+    }
+    .sidebar-nodes-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .category-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        border-radius: 12px;
+        transition: all 0.2s ease;
+    }
+    .sidebar-category-action-trigger {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-grow: 1;
+        padding: 12px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #334155;
+        text-decoration: none !important;
+        text-align: left;
+        transition: color 0.15s ease;
+    }
+    .sidebar-category-action-trigger:hover,
+    .sidebar-category-action-trigger.active-node-link {
+        color: #005A5B !important;
+    }
+    
+    .sidebar-icon-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        color: inherit;
+        flex-shrink: 0;
+    }
+    .sidebar-node-icon {
+        width: 20px;
+        height: 20px;
+        stroke-width: 2;
+    }
+    
+    /* Permanent Chevron Buttons Styles (Default Visible) */
+    .submenu-accordion-indicator-btn,
+    .submenu-accordion-indicator-btn.leaf-pointer {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: flex !important;
+        background: transparent !important;
+        border: none !important;
+        width: 38px;
+        height: 38px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #94a3b8 !important; /* Soft elegant default gray */
+        padding: 0 !important;
+        transition: color 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    .chevron-svg {
+        transform: rotate(0deg);
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Transition chevron animation when drawer status changes */
+    .menu-drawer-expanded .submenu-accordion-indicator-btn .chevron-svg {
+        transform: rotate(90deg) !important;
+        color: #005A5B !important;
+    }
+    
+    /* Row Hover Dynamic Effects */
+    .category-header-row:hover .submenu-accordion-indicator-btn,
+    .submenu-accordion-indicator-btn:hover {
+        color: #005A5B !important;
+    }
+    
+    .sidebar-child-dropdown-drawer {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        padding-left: 14px;
+    }
+    .menu-drawer-expanded .sidebar-child-dropdown-drawer {
+        max-height: 1000px; 
+    }
+    
+    .sidebar-details-promo-card {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 6px 0 12px 12px;
+    }
+    .sidebar-details-promo-card p {
+        font-size: 11px;
+        color: #166534;
+        margin: 0 0 8px 0;
+        line-height: 1.4;
+    }
+    .promo-details-btn {
+        display: inline-block;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #005A5B !important;
+        text-decoration: none !important;
+        transition: opacity 0.15s ease;
+    }
+    .promo-details-btn:hover {
+        opacity: 0.8;
+    }
+
+    .sub-category-list-elements {
+        list-style: none !important;
+        padding: 0 0 12px 0 !important;
+        margin: 0 !important;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        border-left: 2px solid #f1f5f9;
+        padding-left: 14px !important;
+    }
+    .sidebar-category-action-trigger.child-link {
+        padding: 6px 0;
+        font-size: 13px;
+        font-weight: 500;
+        color: #64748b;
+    }
+    .sidebar-category-action-trigger.child-link:hover {
+        color: #005A5B !important;
+    }
+
+    .menu-drawer-expanded > .category-header-row {
+        background: #f8fafc;
+    }
+    .menu-drawer-expanded > .category-header-row .sidebar-category-action-trigger {
+        color: #005A5B;
+    }
+    </style>
+    ';
+
+    return $output;
+});
