@@ -1,0 +1,108 @@
+/**
+ * SHORTCODE: [explore_other_categories]
+ * Forced direct string/ID/Array parsing for custom uploaded SVGs.
+ */
+add_shortcode('explore_other_categories', function() {
+    $current_term_id = 0;
+    if ( is_tax('product-category') ) {
+        $current_term = get_queried_object();
+        if ( $current_term && isset($current_term->term_id) ) {
+            $current_term_id = $current_term->term_id;
+        }
+    }
+
+    $args = array(
+        'taxonomy'   => 'product-category',
+        'parent'     => 0, 
+        'hide_empty' => false,
+    );
+
+    if ( $current_term_id > 0 ) {
+        $args['exclude'] = array($current_term_id);
+    }
+
+    $categories = get_terms($args);
+
+    if ( empty($categories) || is_wp_error($categories) ) {
+        return '<p>No other categories found.</p>';
+    }
+
+    $output = '<div class="explore-categories-wrapper">';
+    $output .= '  <div class="explore-categories-grid">';
+
+    foreach ( $categories as $cat ) {
+        $link = get_term_link($cat);
+        
+        // Pull raw custom field data directly from term meta
+        $icon_data = get_field('category_icon', 'product-category_' . $cat->term_id);
+        $icon_url = '';
+
+        if ( ! empty($icon_data) ) {
+            if ( is_string($icon_data) ) {
+                $icon_url = $icon_data;
+            } elseif ( is_array($icon_data) && isset($icon_data['url']) ) {
+                $icon_url = $icon_data['url'];
+            } elseif ( is_numeric($icon_data) ) {
+                $icon_url = wp_get_attachment_url($icon_data); 
+            }
+        }
+
+        // Deep fallback directly to the raw DB meta row if ACF format is acting up
+        if ( empty($icon_url) ) {
+            $raw_meta = get_term_meta($cat->term_id, 'category_icon', true);
+            if ( $raw_meta ) {
+                $icon_url = is_numeric($raw_meta) ? wp_get_attachment_url($raw_meta) : $raw_meta;
+            }
+        }
+
+        // Clean light SVG placeholder if no custom asset is present
+        if ( empty($icon_url) ) {
+            $icon_url = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 50 50"><rect width="50" height="50" fill="%23f1f5f9" rx="12"/><circle cx="25" cy="25" r="8" fill="%23cbd5e1"/></svg>'; 
+        }
+
+        $output .= '    <a href="' . esc_url($link) . '" class="category-card-item">';
+        $output .= '      <div class="category-card-icon"><img src="' . esc_url($icon_url) . '" alt="' . esc_attr($cat->name) . '" /></div>';
+        $output .= '      <h3 class="category-card-title">' . esc_html($cat->name) . '</h3>';
+        $output .= '      <div class="category-card-arrow">';
+        $output .= '        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>';
+        $output .= '      </div>';
+        $output .= '    </a>';
+    }
+
+    $output .= '  </div>';
+    $output .= '</div>';
+
+    // Strict alignment and spacing CSS matching the reference design
+    $output .= '
+    <style>
+    .explore-categories-wrapper { width: 100%; padding: 5px 0; font-family: inherit; }
+    .explore-categories-grid { display: grid; grid-template-columns: repeat(4, 1fr) !important; gap: 20px; width: 100%; }
+    
+    @media (max-width: 1024px) { .explore-categories-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+    @media (max-width: 600px) { .explore-categories-grid { grid-template-columns: 1fr !important; } }
+
+    .category-card-item { 
+        display: flex; 
+        flex-direction: column; 
+        align-items: flex-start; 
+        background: #ffffff; 
+        border: 1px solid #e2e8f0; 
+        border-radius: 14px; 
+        padding: 24px; 
+        text-decoration: none; 
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+        box-sizing: border-box;
+        min-height: 175px; 
+    }
+    .category-card-item:hover { box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04); transform: translateY(-2px); }
+    .category-card-icon { margin-bottom: 12px; display: flex; align-items: center; justify-content: center; height: 40px; width: 40px; }
+    .category-card-icon img { width: 40px; height: 40px; object-fit: contain; display: block; }
+    .category-card-title { font-size: 14px !important; font-weight: 600; color: #1e293b; line-height: 1.4; margin: 0 0 10px 0; text-align: left; }
+    .category-card-arrow { margin-top: auto; display: flex; align-items: center; }
+    .category-card-arrow svg { width: 14px; height: 14px; color: #94a3b8; transition: color 0.2s ease, transform 0.2s ease; }
+    .category-card-item:hover .category-card-arrow svg { color: #0f172a; transform: translateX(4px); }
+    </style>
+    ';
+
+    return $output;
+});
