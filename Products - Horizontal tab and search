@@ -1,0 +1,129 @@
+/**
+ * COMPONENT 3: [acf_master_horizontal_tabs_search]
+ * Live AJAX Search Box & Category Tabs (Custom Wrapped & Strict Ordered)
+ */
+add_shortcode('acf_master_horizontal_tabs_search', function() {
+    // Fetch terms
+    $terms = get_terms(array(
+        'taxonomy'   => 'product-category',
+        'hide_empty' => false,
+        'parent'     => 0
+    ));
+
+    if (!is_wp_error($terms) && !empty($terms)) {
+        // 🛠️ Strict sorting matrix matching the mega menu order
+        usort($terms, function($a, $b) {
+            $getCategoryOrderIndex = function($category) {
+                $slug = strtolower($category->slug);
+                $name = html_entity_decode(strtolower($category->name));
+
+                // 1. Testing & Measurement
+                if ((strpos($name, 'testing') !== false && strpos($name, 'material') === false) || 
+                    (strpos($slug, 'testing') !== false && strpos($slug, 'material') === false)) {
+                    return 1;
+                }
+                // 2. Turnkey Laboratory Solutions
+                if (strpos($slug, 'turnkey') !== false || strpos($name, 'turnkey') !== false) return 2;
+                // 3. Earth Sciences & Environment Solutions
+                if (strpos($slug, 'earth') !== false || strpos($name, 'earth') !== false) return 3;
+                // 4. Material Testing Solutions
+                if (strpos($slug, 'material') !== false || strpos($name, 'material') !== false) return 4;
+                // 5. Essential Lab Resources
+                if (strpos($slug, 'essential') !== false || strpos($name, 'essential') !== false) return 5;
+                // 6. Lab Furniture
+                if (strpos($slug, 'furniture') !== false || strpos($name, 'furniture') !== false) return 6;
+                // 7. Medical & Life Science Solutions
+                if (strpos($slug, 'medical') !== false || strpos($name, 'medical') !== false) return 7;
+                // 8. Calibration Services as per ISO 17025
+                if (strpos($slug, 'calibration') !== false || strpos($name, 'calibration') !== false) return 8;
+                // 9. Service & Technical Support
+                if (strpos($slug, 'service') !== false || strpos($name, 'service') !== false || strpos($name, 'technical') !== false) return 9;
+
+                return 999;
+            };
+
+            return $getCategoryOrderIndex($a) - $getCategoryOrderIndex($b);
+        });
+    }
+
+    $output = '<div class="acf-isolated-search-tabs-container">';
+
+    // 🔍 REAL-TIME LIVE SEARCH BAR
+    $output .= '  <div class="top-search-row-layout">';
+    $output .= '    <div class="search-field-capsule-wrapper">';
+    $output .= '      <span class="lens-icon-vector">';
+    $output .= '        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+    $output .= '      </span>';
+    $output .= '      <input type="text" id="ajax-live-search-input" placeholder="Search products instantly..." class="search-field-element" autocomplete="off" />';
+    $output .= '      <a href="#" id="ajax-search-clear-x" class="search-input-reset-x" style="display:none;">×</a>';
+    $output .= '    </div>';
+    $output .= '  </div>';
+
+    // 🏷️ STABLE ORDER HORIZONTAL PILLS TRACK (No more horizontal cropping)
+    $output .= '  <div class="horizontal-pills-scroll-track">';
+    $output .= '    <a href="#" class="category-pill-nav-btn active-pill" data-slug="">All Products</a>';
+
+    if (!is_wp_error($terms) && !empty($terms)) {
+        foreach ($terms as $term) {
+            $icon_svg = '';
+            $term_name = html_entity_decode($term->name);
+            $term_slug = $term->slug;
+
+            // Dynamically assign matching icons
+            if (stripos($term_name, 'testing') !== false && stripos($term_name, 'material') === false) {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>';
+            } elseif (stripos($term_name, 'turnkey') !== false) {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>';
+            } elseif (stripos($term_name, 'earth') !== false || stripos($term_name, 'environment') !== false) {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18m9-9H3m18 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+            } elseif (stripos($term_name, 'material') !== false) {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0121 16z"/></svg>';
+            } elseif (stripos($term_name, 'essential') !== false) {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.5 8.25l-7.5 4.5-7.5-4.5m15 0v7.5l-7.5 4.5-7.5 4.5v-7.5m15 0l-7.5-4.5-7.5 4.5"/></svg>';
+            } elseif (stripos($term_name, 'furniture') !== false) {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7h16v7M4 14V4h16v10M12 4v10"/></svg>';
+            } elseif (stripos($term_name, 'medical') !== false || stripos($term_name, 'life science') !== false) {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>';
+            } elseif (stripos($term_name, 'calibration') !== false) {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>';
+            } elseif (stripos($term_name, 'service') !== false || stripos($term_name, 'technical') !== false) {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+            } else {
+                $icon_svg = '<svg class="pill-inline-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>';
+            }
+
+            $output .= '    <a href="#" class="category-pill-nav-btn" data-slug="' . esc_attr($term_slug) . '">' . $icon_svg . esc_html($term_name) . '</a>';
+        }
+    }
+
+    $output .= '  </div>';
+    $output .= '</div>';
+
+    // 🎨 STYLES (Adjusted for clean multiline wrapping)
+    $output .= '
+    <style>
+    .acf-isolated-search-tabs-container { width: 100%; margin-bottom: 32px; }
+    .top-search-row-layout { width: 100%; display: flex; justify-content: flex-end; margin-bottom: 20px; }
+    .search-field-capsule-wrapper { position: relative; width: 100%; max-width: 380px; }
+    .lens-icon-vector { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; pointer-events: none; }
+    .search-field-element { width: 100% !important; height: 44px !important; padding: 10px 40px 10px 42px !important; background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; font-size: 14px !important; color: #1a202c !important; box-sizing: border-box !important; }
+    .search-field-element:focus { border-color: #39a1a2 !important; outline: none !important; }
+    .search-input-reset-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 20px; color: #94a3b8; text-decoration: none !important; cursor: pointer; line-height: 1; }
+    
+    /* 🛠️ Wrapping Layout Adjustments */
+    .horizontal-pills-scroll-track { 
+        display: flex; 
+        flex-wrap: wrap; /* Allows items to flow onto the next line gracefully */
+        gap: 10px 12px; /* Defines vertical and horizontal space between wrap lines */
+        padding-bottom: 8px; 
+        width: 100%; 
+    }
+    .category-pill-nav-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px !important; background: #edf7ef !important; color: #225b77 !important; font-size: 13.5px !important; font-weight: 500 !important; text-decoration: none !important; border-radius: 30px !important; white-space: nowrap !important; transition: all 0.2s ease; }
+    .category-pill-nav-btn:hover { background: #e2e8f0 !important; }
+    .category-pill-nav-btn.active-pill { background: #005A5B !important; color: #ffffff !important; }
+    .pill-inline-icon { display: inline-block; flex-shrink: 0; }
+    </style>
+    ';
+
+    return $output;
+});
