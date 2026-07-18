@@ -1,0 +1,107 @@
+/**
+ * BACKEND CORE ENGINE: AJAX Product Catalog Filter Processing Router
+ * Cleaned: Removed hidden non-breaking space syntax characters.
+ */
+
+add_action('wp_ajax_filter_catalog_products', 'handle_catalog_products_ajax_filtering');
+add_action('wp_ajax_nopriv_filter_catalog_products', 'handle_catalog_products_ajax_filtering');
+
+function handle_catalog_products_ajax_filtering() {
+    $category_slug = !empty($_POST['p_cat']) ? sanitize_text_field($_POST['p_cat']) : '';
+    $search_query  = !empty($_POST['p_search']) ? sanitize_text_field($_POST['p_search']) : '';
+    $paged         = !empty($_POST['paged']) ? intval($_POST['paged']) : 1;
+
+    $args = array(
+        'post_type'      => 'product',
+        'post_status'    => 'publish',
+        'posts_per_page' => 9,
+        'paged'          => $paged,
+        'orderby'        => 'date',
+        'order'          => 'DESC'
+    );
+
+    if (!empty($category_slug)) {
+        $args['tax_query'] = array(
+            array(
+                'taxonomy' => 'product-category',
+                'field'    => 'slug',
+                'terms'    => $category_slug,
+                'operator' => 'IN'
+            )
+        );
+    }
+
+    if (!empty($search_query)) {
+        $args['s'] = $search_query;
+    }
+
+    $query = new WP_Query($args);
+    $html_output = '';
+    $pagination_html = '';
+    $count_text = '0 items';
+    
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            $product_id = get_the_ID();
+            
+            $image_url = get_the_post_thumbnail_url($product_id, 'medium') ?: 'https://placehold.co/600x450?text=No+Image';
+            $terms = get_the_terms($product_id, 'product-category');
+            $tag_label = !is_wp_error($terms) && !empty($terms) ? esc_html($terms[0]->name) : 'PRODUCT';
+
+            // Fetch description Safely
+            $desc = get_field('full_description', $product_id) ?: get_post_meta($product_id, 'full_description', true);
+            if (empty($desc)) {
+                $post_obj = get_post($product_id);
+                $desc = !empty($post_obj->post_excerpt) ? $post_obj->post_excerpt : $post_obj->post_content;
+            }
+            $truncated_excerpt = wp_html_excerpt(wp_strip_all_tags(strip_shortcodes($desc)), 120, '...');
+
+            $html_output .= '<a href="' . esc_url(get_permalink()) . '" class="catalog-card-anchor">';
+            $html_output .= '  <article class="catalog-card-item">';
+            $html_output .= '    <div class="catalog-card-thumb"><img src="' . esc_url($image_url) . '" alt="' . esc_attr(get_the_title()) . '" loading="lazy" /></div>';
+            $html_output .= '    <div class="catalog-card-content">';
+            $html_output .= '      <span class="catalog-card-tag">' . esc_html($tag_label) . '</span>';
+            $html_output .= '      <h4 class="catalog-card-title">' . esc_html(get_the_title()) . '</h4>';
+            $html_output .= '      <p class="catalog-card-excerpt">' . esc_html($truncated_excerpt) . '</p>';
+            $html_output .= '      <div class="catalog-card-btn"><span>View Details</span> <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></div>';
+            $html_output .= '    </div>';
+            $html_output .= '  </article>';
+            $html_output .= '</a>';
+        }
+
+        // Pagination Logic
+        if ($query->max_num_pages > 1) {
+            $links = paginate_links([
+                'base'      => '%_%', 
+                'format'    => '?paged=%#%', 
+                'current'   => $paged, 
+                'total'     => $query->max_num_pages, 
+                'type'      => 'array',
+                'prev_text' => '&laquo;',
+                'next_text' => '&raquo;'
+            ]);
+            
+            if ($links) {
+                $pagination_html .= '<ul class="pagination-list-nav-links">';
+                foreach ($links as $link) {
+                    $pagination_html .= '<li>' . $link . '</li>';
+                }
+                $pagination_html .= '</ul>';
+            }
+        }
+        
+        $total_items = $query->found_posts;
+        $count_text = $total_items . ' item' . ($total_items !== 1 ? 's' : '');
+    } else {
+        $html_output = '<div class="catalog-empty-state">No items found matching this category.</div>';
+    }
+
+    wp_reset_postdata();
+    wp_send_json([
+        'html'       => $html_output, 
+        'pagination' => $pagination_html, 
+        'count_text' => $count_text
+    ]);
+    wp_die();
+}
